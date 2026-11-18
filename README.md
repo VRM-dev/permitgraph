@@ -76,4 +76,15 @@ flowchart LR
 
 ## Getting started
 
-Setup instructions will be added once the first packages are in place.
+The repository is a pnpm workspace (Node 22, see `.nvmrc`):
+
+| Package | Contents |
+|---|---|
+| [`packages/evaluator`](packages/evaluator/README.md) | Standalone graph evaluator, no I/O |
+| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces and roles |
+
+```sh
+pnpm install
+pnpm lint && pnpm typecheck && pnpm test
+docker compose up -d postgres   # local PostgreSQL for the API, see apps/api/README.md
+```

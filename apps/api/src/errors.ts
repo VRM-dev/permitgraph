@@ -1,0 +1,35 @@
+export type ErrorCode =
+  | "BAD_REQUEST"
+  | "UNAUTHENTICATED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "SLUG_TAKEN"
+  | "LAST_OWNER"
+  | "INTERNAL";
+
+export class HttpError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly code: ErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
+/** Thrown by stores when a workspace slug is already in use. */
+export class SlugTakenError extends Error {
+  constructor(readonly slug: string) {
+    super(`Workspace slug "${slug}" is already taken`);
+    this.name = "SlugTakenError";
+  }
+}
+
+/** Thrown by stores when a change would leave a workspace without an owner. */
+export class LastOwnerError extends Error {
+  constructor() {
+    super("A workspace must keep at least one owner");
+    this.name = "LastOwnerError";
+  }
+}
