@@ -27,3 +27,8 @@ Tests use the synthetic `test/fixtures/tiny-org.ts` snapshot.
 pnpm --filter @permitgraph/evaluator test
 pnpm --filter @permitgraph/evaluator typecheck
 ```
+
+The root `pnpm lint` enforces the no-I/O rule: code under `src/` may not
+import Node built-ins or use `fetch`, `process`, timers, `Math.random` or
+`Date.now`. CI runs lint, typecheck, tests and build on every push to `main`
+and on pull requests.
