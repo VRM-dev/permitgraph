@@ -2,7 +2,7 @@
 
 **Explainable permissions and access-change simulation.** PermitGraph shows exactly why someone has access to a resource, and previews who would lose access if you changed a grant or group membership, without touching the source system.
 
-> **Status:** early development, following a 12-week roadmap (see below). It works on synthetic snapshots; any live connector will be optional and read-only.
+> **Status:** early development, following a 5-week roadmap (see below). It works on synthetic snapshots; any live connector will be optional and read-only.
 
 ## The problem
 
@@ -66,14 +66,13 @@ flowchart LR
 
 ## Roadmap
 
-| Weeks | Focus |
-|---|---|
-| 1–3 | Graph evaluator and CI; roles, immutable snapshots, synthetic seed data; graph normalization |
-| 4–5 | Graph explorer and access-path inspector; policy precedence with allow/deny/unknown |
-| 6–7 | Change proposals, dry runs and before/after diffs; broad-grant findings |
-| 8–9 | Optional read-only GitHub connector; evaluator conformance tests |
-| 10–11 | Traversal limits, isolation tests, benchmarks on larger graphs, containers |
-| 12 | Tests, API and semantics docs, and a reproducible demo |
+| Week | Focus | Status |
+|---|---|---|
+| Week 1 | **W01-01 + foundation** — Scaffold workspace with standalone evaluator package, evaluate direct membership with fixture tests, add Fastify API with Prisma schema for workspaces and roles, add immutable snapshots and synthetic seed | Planned |
+| Week 2 | **Graph** — Normalize nodes and edges, validate graph imports, add graph search, add graph explorer, add access-path inspector | Planned |
+| Week 3 | **Policy** — Add allow, deny and unknown precedence, add change proposals with dry-run evaluation, show before/after diffs | Planned |
+| Week 4 | **Findings & conformance** — Flag broad grants with evidence, bound traversal and handle cycles and oversized imports | Planned |
+| Week 5 | **Release** — Benchmark larger graphs, package containers and document operations, add end-to-end tests and API docs | Planned |
 
 ## Getting started
 
