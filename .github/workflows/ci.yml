@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Only used by `prisma validate`; no database runs in CI yet.
+      DATABASE_URL: postgresql://permitgraph:permitgraph@127.0.0.1:5432/permitgraph
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # No lockfile is committed yet, so resolve from package.json ranges.
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Validate Prisma schema
+        run: pnpm --filter @permitgraph/api exec prisma validate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Check build output
+        run: |
+          test -f packages/evaluator/dist/index.js && test -f packages/evaluator/dist/index.d.ts
+          test -f apps/api/dist/server.js && test -f apps/api/dist/app.js

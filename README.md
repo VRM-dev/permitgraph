@@ -68,7 +68,7 @@ flowchart LR
 
 | Week | Focus | Status |
 |---|---|---|
-| Week 1 | **W01-01 + foundation** — Scaffold workspace with standalone evaluator package, evaluate direct membership with fixture tests, add Fastify API with Prisma schema for workspaces and roles, add immutable snapshots and synthetic seed | Planned |
+| Week 1 | **W01-01 + foundation** — Scaffold workspace with standalone evaluator package, evaluate direct membership with fixture tests, add Fastify API with Prisma schema for workspaces and roles, add immutable snapshots and synthetic seed | ✅ Done |
 | Week 2 | **Graph** — Normalize nodes and edges, validate graph imports, add graph search, add graph explorer, add access-path inspector | Planned |
 | Week 3 | **Policy** — Add allow, deny and unknown precedence, add change proposals with dry-run evaluation, show before/after diffs | Planned |
 | Week 4 | **Findings & conformance** — Flag broad grants with evidence, bound traversal and handle cycles and oversized imports | Planned |
@@ -76,4 +76,15 @@ flowchart LR
 
 ## Getting started
 
-Setup instructions will be added once the first packages are in place.
+The repository is a pnpm workspace (Node 22, see `.nvmrc`):
+
+| Package | Contents |
+|---|---|
+| [`packages/evaluator`](packages/evaluator/README.md) | Standalone graph evaluator, no I/O |
+| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces, roles, immutable snapshots, synthetic seed |
+
+```sh
+pnpm install
+pnpm lint && pnpm typecheck && pnpm test
+docker compose up -d postgres   # local PostgreSQL for the API, see apps/api/README.md
+```
