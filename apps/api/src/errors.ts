@@ -5,6 +5,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "SLUG_TAKEN"
   | "LAST_OWNER"
+  | "INVALID_SNAPSHOT"
   | "INTERNAL";
 
 export class HttpError extends Error {
@@ -31,5 +32,17 @@ export class LastOwnerError extends Error {
   constructor() {
     super("A workspace must keep at least one owner");
     this.name = "LastOwnerError";
+  }
+}
+
+/** Thrown when a snapshot is well-formed JSON but not a consistent graph. */
+export class InvalidSnapshotError extends Error {
+  constructor(
+    readonly reason: string,
+    readonly ref: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "InvalidSnapshotError";
   }
 }

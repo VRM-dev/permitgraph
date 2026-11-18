@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { buildApp } from "./app.js";
+import { PrismaSnapshotStore } from "./prisma-snapshot-store.js";
 import { PrismaWorkspaceStore } from "./prisma-store.js";
 
 const port = Number(process.env.PORT ?? 3001);
@@ -11,7 +12,11 @@ if (!process.env.DATABASE_URL) {
 }
 
 const prisma = new PrismaClient();
-const app = buildApp({ store: new PrismaWorkspaceStore(prisma), logger: true });
+const app = buildApp({
+  store: new PrismaWorkspaceStore(prisma),
+  snapshots: new PrismaSnapshotStore(prisma),
+  logger: true,
+});
 
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");

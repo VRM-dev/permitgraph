@@ -2,7 +2,7 @@
   "name": "@permitgraph/api",
   "version": "0.0.0",
   "private": true,
-  "description": "PermitGraph HTTP API: workspaces, roles and (later) snapshot imports",
+  "description": "PermitGraph HTTP API: workspaces, roles and immutable snapshot imports",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -11,9 +11,11 @@
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "db:migrate": "prisma migrate deploy",
-    "db:migrate:dev": "prisma migrate dev"
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "tsx src/seed-db.ts"
   },
   "dependencies": {
+    "@permitgraph/evaluator": "workspace:*",
     "@prisma/client": "^5.22.0",
     "fastify": "^5.1.0",
     "zod": "^3.23.8"
@@ -24,5 +26,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
+  },
+  "prisma": {
+    "seed": "tsx src/seed-db.ts"
   }
 }

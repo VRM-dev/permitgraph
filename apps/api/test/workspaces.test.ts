@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp, USER_HEADER } from "../src/app.js";
 import type { User } from "../src/domain.js";
+import { InMemorySnapshotStore } from "../src/memory-snapshot-store.js";
 import { InMemoryWorkspaceStore } from "../src/memory-store.js";
 import { can } from "../src/roles.js";
 
@@ -16,7 +17,7 @@ const users: User[] = [
 let app: FastifyInstance;
 
 beforeEach(() => {
-  app = buildApp({ store: new InMemoryWorkspaceStore(users) });
+  app = buildApp({ store: new InMemoryWorkspaceStore(users), snapshots: new InMemorySnapshotStore() });
 });
 
 afterEach(async () => {

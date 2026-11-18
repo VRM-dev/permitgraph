@@ -81,7 +81,7 @@ The repository is a pnpm workspace (Node 22, see `.nvmrc`):
 | Package | Contents |
 |---|---|
 | [`packages/evaluator`](packages/evaluator/README.md) | Standalone graph evaluator, no I/O |
-| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces and roles |
+| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces, roles, immutable snapshots, synthetic seed |
 
 ```sh
 pnpm install

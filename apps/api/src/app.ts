@@ -1,8 +1,19 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { z, ZodError } from "zod";
-import { WORKSPACE_ROLES, type Member, type User, type Workspace, type WorkspaceWithRole } from "./domain.js";
-import { HttpError, LastOwnerError, SlugTakenError } from "./errors.js";
+import type { GraphSnapshot } from "@permitgraph/evaluator";
+import {
+  WORKSPACE_ROLES,
+  type Member,
+  type Snapshot,
+  type SnapshotSummary,
+  type User,
+  type Workspace,
+  type WorkspaceWithRole,
+} from "./domain.js";
+import { HttpError, InvalidSnapshotError, LastOwnerError, SlugTakenError } from "./errors.js";
 import { can, type Action } from "./roles.js";
+import type { SnapshotStore } from "./snapshot-store.js";
+import { importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS } from "./snapshots.js";
 import type { WorkspaceStore } from "./store.js";
 
 /**
@@ -13,6 +24,7 @@ export const USER_HEADER = "x-permitgraph-user";
 
 export interface AppOptions {
   store: WorkspaceStore;
+  snapshots: SnapshotStore;
   logger?: boolean;
 }
 
@@ -23,9 +35,10 @@ const createWorkspaceBody = z.object({ slug: slugSchema, name: z.string().trim()
 const workspaceParams = z.object({ workspaceId: z.string().min(1).max(64) });
 const memberParams = workspaceParams.extend({ userId: z.string().min(1).max(64) });
 const setRoleBody = z.object({ role: z.enum(WORKSPACE_ROLES) }).strict();
+const snapshotParams = workspaceParams.extend({ snapshotId: z.string().min(1).max(64) });
 
 export function buildApp(options: AppOptions): FastifyInstance {
-  const { store } = options;
+  const { store, snapshots } = options;
   const app = Fastify({ logger: options.logger ?? false });
 
   app.setErrorHandler((error: unknown, request, reply) => {
@@ -116,6 +129,46 @@ export function buildApp(options: AppOptions): FastifyInstance {
     }
   });
 
+  app.post(
+    "/workspaces/:workspaceId/snapshots",
+    { bodyLimit: SNAPSHOT_LIMITS.bodyBytes },
+    async (request, reply) => {
+      const user = await authenticate(request);
+      const { workspaceId } = workspaceParams.parse(request.params);
+      await authorize(workspaceId, user, "snapshot:import");
+      const body = importSnapshotBody.parse(request.body);
+      // Zod leaves absent optional keys absent, so the parsed value matches GraphSnapshot.
+      const graph = body.graph as GraphSnapshot;
+      try {
+        const prepared = prepareSnapshot(graph);
+        const snapshot = await snapshots.createSnapshot({ ...prepared, workspaceId, label: body.label, importedBy: user.id });
+        return reply.status(201).send({ snapshot: snapshotSummaryJson(snapshot) });
+      } catch (error) {
+        if (error instanceof InvalidSnapshotError) {
+          throw new HttpError(422, "INVALID_SNAPSHOT", `${error.reason}: ${error.message}`);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get("/workspaces/:workspaceId/snapshots", async (request) => {
+    const user = await authenticate(request);
+    const { workspaceId } = workspaceParams.parse(request.params);
+    await authorize(workspaceId, user, "workspace:read");
+    const list = await snapshots.listSnapshots(workspaceId);
+    return { snapshots: list.map(snapshotSummaryJson) };
+  });
+
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId", async (request) => {
+    const user = await authenticate(request);
+    const { workspaceId, snapshotId } = snapshotParams.parse(request.params);
+    await authorize(workspaceId, user, "workspace:read");
+    const snapshot = await snapshots.findSnapshot(workspaceId, snapshotId);
+    if (!snapshot) throw new HttpError(404, "NOT_FOUND", "Snapshot not found");
+    return { snapshot: snapshotJson(snapshot) };
+  });
+
   return app;
 }
 
@@ -141,4 +194,19 @@ function memberJson(member: Member) {
     role: member.role,
     joinedAt: member.joinedAt.toISOString(),
   };
+}
+
+function snapshotSummaryJson(snapshot: SnapshotSummary) {
+  return {
+    id: snapshot.id,
+    label: snapshot.label,
+    contentHash: snapshot.contentHash,
+    counts: snapshot.counts,
+    importedBy: snapshot.importedBy,
+    createdAt: snapshot.createdAt.toISOString(),
+  };
+}
+
+function snapshotJson(snapshot: Snapshot) {
+  return { ...snapshotSummaryJson(snapshot), graph: snapshot.graph };
 }

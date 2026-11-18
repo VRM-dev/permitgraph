@@ -22,6 +22,7 @@ model User {
   displayName String            @map("display_name")
   createdAt   DateTime          @default(now()) @map("created_at")
   memberships WorkspaceMember[]
+  snapshots   Snapshot[]
 
   @@map("users")
 }
@@ -32,6 +33,7 @@ model Workspace {
   name      String
   createdAt DateTime          @default(now()) @map("created_at")
   members   WorkspaceMember[]
+  snapshots Snapshot[]
 
   @@map("workspaces")
 }
@@ -48,4 +50,26 @@ model WorkspaceMember {
   @@id([workspaceId, userId])
   @@index([userId])
   @@map("workspace_members")
+}
+
+/// An imported graph snapshot. Rows are never updated (a database trigger
+/// rejects UPDATE); a new import always creates a new snapshot.
+model Snapshot {
+  id              String    @id @default(cuid())
+  workspaceId     String    @map("workspace_id")
+  label           String
+  contentHash     String    @map("content_hash")
+  graph           Json
+  principalCount  Int       @map("principal_count")
+  groupCount      Int       @map("group_count")
+  membershipCount Int       @map("membership_count")
+  resourceCount   Int       @map("resource_count")
+  importedById    String    @map("imported_by_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  importedBy      User      @relation(fields: [importedById], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, contentHash])
+  @@map("snapshots")
 }
