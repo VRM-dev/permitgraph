@@ -13,7 +13,7 @@ import {
 import { HttpError, InvalidSnapshotError, LastOwnerError, SlugTakenError } from "./errors.js";
 import { can, type Action } from "./roles.js";
 import type { SnapshotStore } from "./snapshot-store.js";
-import { importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS } from "./snapshots.js";
+import { checkImport, importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS, validateImportBody } from "./snapshots.js";
 import type { WorkspaceStore } from "./store.js";
 
 /**
@@ -43,7 +43,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   app.setErrorHandler((error: unknown, request, reply) => {
     if (error instanceof HttpError) {
-      return reply.status(error.statusCode).send(envelope(error.code, error.message));
+      return reply.status(error.statusCode).send(envelope(error.code, error.message, error.details));
     }
     if (error instanceof ZodError) {
       const message = error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; ");
@@ -145,10 +145,33 @@ export function buildApp(options: AppOptions): FastifyInstance {
         return reply.status(201).send({ snapshot: snapshotSummaryJson(snapshot) });
       } catch (error) {
         if (error instanceof InvalidSnapshotError) {
-          throw new HttpError(422, "INVALID_SNAPSHOT", `${error.reason}: ${error.message}`);
+          const { report } = error;
+          throw new HttpError(422, "INVALID_SNAPSHOT", error.message, {
+            errorCount: report.errorCount,
+            warningCount: report.warningCount,
+            issues: report.issues,
+            truncated: report.truncated,
+          });
         }
         throw error;
       }
+    },
+  );
+
+  /**
+   * Dry run of an import: reports every problem in the graph (with paths)
+   * and, for a valid graph, the counts and content hash an import would
+   * store. Nothing is written. Same permission and size limits as an import.
+   */
+  app.post(
+    "/workspaces/:workspaceId/imports/validate",
+    { bodyLimit: SNAPSHOT_LIMITS.bodyBytes },
+    async (request) => {
+      const user = await authenticate(request);
+      const { workspaceId } = workspaceParams.parse(request.params);
+      await authorize(workspaceId, user, "snapshot:import");
+      const body = validateImportBody.parse(request.body);
+      return { report: checkImport(body.graph as GraphSnapshot) };
     },
   );
 
@@ -172,8 +195,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
   return app;
 }
 
-function envelope(code: string, message: string) {
-  return { error: { code, message } };
+function envelope(code: string, message: string, details?: Record<string, unknown>) {
+  return { error: { code, message, ...details } };
 }
 
 function workspaceJson(workspace: Workspace & { role?: string }) {

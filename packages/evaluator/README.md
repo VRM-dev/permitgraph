@@ -36,6 +36,13 @@ stable edge ids such as `member_of:g-contractors->g-engineering` or
 whatever order its arrays were in, and `toSnapshot` turns it back into a
 snapshot (`normalizeSnapshot(toSnapshot(n))` equals `n`).
 
+`validateSnapshot(snapshot)` checks the whole snapshot and returns a report
+instead of throwing: `valid`, error and warning counts, and every issue with
+its `code`, `ref` and `path` (e.g. `grants[3].permission`), errors first and
+capped by `maxIssues` (default 100). It is valid exactly when `buildGraph`
+accepts the snapshot. Duplicate memberships and grants are warnings
+(`DUPLICATE_MEMBERSHIP`, `DUPLICATE_GRANT`), since normalization drops them.
+
 Tests use two synthetic snapshots: `test/fixtures/tiny-org.ts` and the
 40-identity `test/fixtures/sample-org.ts` (34 users, 6 service accounts,
 nested groups and grants on six repositories).

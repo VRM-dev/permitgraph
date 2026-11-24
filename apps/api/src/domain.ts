@@ -31,6 +31,7 @@ export interface SnapshotCounts {
   groups: number;
   memberships: number;
   resources: number;
+  grants: number;
 }
 
 /** Snapshot metadata, without the (possibly large) graph. */

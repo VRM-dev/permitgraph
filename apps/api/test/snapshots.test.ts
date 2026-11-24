@@ -66,7 +66,7 @@ describe("snapshot import", () => {
     const res = await importAs("u-eddie", acmeId, { label: "support team", graph: smallGraph });
     expect(res.statusCode).toBe(201);
     const { snapshot } = res.json();
-    expect(snapshot.counts).toEqual({ principals: 1, groups: 1, memberships: 1, resources: 1 });
+    expect(snapshot.counts).toEqual({ principals: 1, groups: 1, memberships: 1, resources: 1, grants: 0 });
     expect(snapshot.contentHash).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(snapshot.importedBy).toBe("u-eddie");
 
@@ -87,6 +87,9 @@ describe("snapshot import", () => {
     expect(res.statusCode).toBe(422);
     expect(res.json().error.code).toBe("INVALID_SNAPSHOT");
     expect(res.json().error.message).toContain("UNKNOWN_GROUP");
+    expect(res.json().error.issues).toEqual([
+      expect.objectContaining({ code: "UNKNOWN_GROUP", path: "memberships[0].group", ref: "g-missing" }),
+    ]);
     expect(await snapshots.listSnapshots(acmeId)).toHaveLength(1);
   });
 
@@ -98,7 +101,7 @@ describe("snapshot import", () => {
   });
 
   it("rejects unknown fields and principal kinds with 400", async () => {
-    const extra = await importAs("u-olivia", acmeId, { label: "x", graph: { ...smallGraph, grants: [] } });
+    const extra = await importAs("u-olivia", acmeId, { label: "x", graph: { ...smallGraph, roles: [] } });
     expect(extra.statusCode).toBe(400);
     const kind = await importAs("u-olivia", acmeId, {
       label: "x",
@@ -109,14 +112,14 @@ describe("snapshot import", () => {
 });
 
 describe("immutability and isolation", () => {
-  it("returns the stored graph unchanged and offers no way to change it", async () => {
+  it("returns the stored (normalized) graph and offers no way to change it", async () => {
     const res = await importAs("u-olivia", acmeId, { label: "support team", graph: smallGraph });
     const id = res.json().snapshot.id as string;
     const url = `/workspaces/${acmeId}/snapshots/${id}`;
 
     const read = await app.inject({ method: "GET", url, headers: as("u-vera") });
     expect(read.statusCode).toBe(200);
-    expect(read.json().snapshot.graph).toEqual(smallGraph);
+    expect(read.json().snapshot.graph).toEqual({ ...smallGraph, grants: [] });
 
     for (const method of ["PUT", "PATCH", "DELETE"] as const) {
       const res2 = await app.inject({ method, url, headers: as("u-olivia"), payload: { label: "renamed" } });
@@ -161,7 +164,7 @@ describe("immutability and isolation", () => {
 });
 
 describe("content hash", () => {
-  it("ignores object key order but not array order", () => {
+  it("ignores object key order but not array order of the raw JSON", () => {
     const graph = SEED_WORKSPACES[0]!.snapshots[0]!.graph;
     const reordered = JSON.parse(
       canonicalJson(graph).replace(/"displayName":("[^"]*"),"id":("[^"]*")/g, '"id":$2,"displayName":$1'),

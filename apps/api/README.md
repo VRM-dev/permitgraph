@@ -25,27 +25,48 @@ don't reveal anything across tenants.
 | GET | `/workspaces/:workspaceId` | Any member |
 | GET | `/workspaces/:workspaceId/members` | Any member |
 | PUT | `/workspaces/:workspaceId/members/:userId` | `{ role }`; owners only; `409 LAST_OWNER` |
-| POST | `/workspaces/:workspaceId/snapshots` | `{ label, graph }`; needs `snapshot:import`; `422 INVALID_SNAPSHOT` |
+| POST | `/workspaces/:workspaceId/imports/validate` | `{ graph }`; needs `snapshot:import`; dry run, returns a validation report, stores nothing |
+| POST | `/workspaces/:workspaceId/snapshots` | `{ label, graph }`; needs `snapshot:import`; `422 INVALID_SNAPSHOT` with the issue list |
 | GET | `/workspaces/:workspaceId/snapshots` | Summaries (counts, content hash), newest first |
 | GET | `/workspaces/:workspaceId/snapshots/:snapshotId` | Summary plus the full graph |
 
 Errors use one envelope: `{ "error": { "code": "...", "message": "..." } }`.
+`422 INVALID_SNAPSHOT` adds `errorCount`, `warningCount`, `issues` and
+`truncated` to it.
 
 There is no sign-in yet. During development the caller is identified by the
 `x-permitgraph-user` header, holding the id of an existing user.
 
 ## Snapshots
 
-A snapshot is a graph of principals, groups, membership edges and resources
-(the `GraphSnapshot` shape from `@permitgraph/evaluator`). On import the API
-validates the shape and limits (10,000 nodes per kind, 50,000 memberships,
-8 MB body), then runs the evaluator's `buildGraph`, so duplicate ids and
-dangling edges are rejected with `422` before anything is stored.
+A snapshot is a graph of principals, groups, membership edges, resources and
+optional grants (the `GraphSnapshot` shape from `@permitgraph/evaluator`). On
+import the API checks the shape and limits (10,000 nodes per kind, 50,000
+memberships, 100,000 grants, 8 MB body; `400` otherwise), then runs the
+evaluator's `validateSnapshot`. Every problem is reported at once, each with a
+code, the offending id and a path such as `memberships[48].member`; any error
+(duplicate id, dangling edge, unknown permission) means `422` and nothing is
+stored. At most 100 issues are listed; the counts are always complete.
+Duplicate edges are only warnings.
+
+`POST …/imports/validate` runs the same checks as a dry run. For a valid graph
+the report also holds the counts and content hash an import would store:
+
+```json
+{ "report": { "valid": true, "errorCount": 0, "warningCount": 0, "issues": [], "truncated": false,
+  "counts": { "principals": 40, "groups": 9, "memberships": 48, "resources": 6, "grants": 17 },
+  "contentHash": "sha256:…" } }
+```
+
+What is stored is the normalized graph (`normalizeSnapshot` + `toSnapshot`):
+nodes and edges sorted, duplicate edges dropped, display names trimmed. So the
+same graph imported with its arrays in a different order gets the same
+content hash.
 
 Snapshots are immutable: there is no update or delete route, and PostgreSQL
 rejects any `UPDATE` on the `snapshots` table with a trigger. Importing again
-creates a new snapshot. Each one records a `sha256:` content hash of its
-canonical JSON (sorted object keys, array order kept), the node counts and who
+creates a new snapshot. Each one records a `sha256:` content hash of the
+canonical JSON of the normalized graph, the node and edge counts and who
 imported it.
 
 Every snapshot belongs to one workspace and is only read through that
@@ -56,7 +77,7 @@ workspace, so ids may repeat between workspaces without any overlap.
 `src/seed-data.ts` holds made-up demo data: four users (`u-olivia`,
 `u-eddie`, `u-vera`, `u-oscar`, all `@example.test`), workspace `acme`
 (Olivia owner, Eddie editor, Vera viewer) and workspace `globex` (Oscar
-owner), each with one baseline snapshot. The two graphs share some ids on
+owner), each with one baseline snapshot including a few grants. The two graphs share some ids on
 purpose to show that workspaces stay separate. Seeding is idempotent.
 
 ```sh

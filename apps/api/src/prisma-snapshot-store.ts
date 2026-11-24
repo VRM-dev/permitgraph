@@ -12,6 +12,7 @@ const summarySelect = {
   groupCount: true,
   membershipCount: true,
   resourceCount: true,
+  grantCount: true,
   importedById: true,
   createdAt: true,
 } as const;
@@ -32,6 +33,7 @@ export class PrismaSnapshotStore implements SnapshotStore {
         groupCount: input.counts.groups,
         membershipCount: input.counts.memberships,
         resourceCount: input.counts.resources,
+        grantCount: input.counts.grants,
         importedById: input.importedBy,
       },
       select: summarySelect,
@@ -71,6 +73,7 @@ function toSummary(row: SummaryRow): SnapshotSummary {
       groups: row.groupCount,
       memberships: row.membershipCount,
       resources: row.resourceCount,
+      grants: row.grantCount,
     },
     importedBy: row.importedById,
     createdAt: row.createdAt,

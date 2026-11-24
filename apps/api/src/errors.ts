@@ -1,3 +1,5 @@
+import type { ValidationReport } from "@permitgraph/evaluator";
+
 export type ErrorCode =
   | "BAD_REQUEST"
   | "UNAUTHENTICATED"
@@ -13,6 +15,8 @@ export class HttpError extends Error {
     readonly statusCode: number,
     readonly code: ErrorCode,
     message: string,
+    /** Extra machine-readable fields for the error envelope. */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "HttpError";
@@ -37,12 +41,13 @@ export class LastOwnerError extends Error {
 
 /** Thrown when a snapshot is well-formed JSON but not a consistent graph. */
 export class InvalidSnapshotError extends Error {
-  constructor(
-    readonly reason: string,
-    readonly ref: string,
-    message: string,
-  ) {
-    super(message);
+  constructor(readonly report: ValidationReport) {
+    const first = report.issues[0];
+    super(
+      first
+        ? `${report.errorCount} error(s); first: ${first.code} at ${first.path}: ${first.message}`
+        : `${report.errorCount} error(s)`,
+    );
     this.name = "InvalidSnapshotError";
   }
 }
