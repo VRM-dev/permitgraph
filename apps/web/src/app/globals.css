@@ -1,0 +1,88 @@
+:root {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --text: #1c2330;
+  --muted: #5b6474;
+  --border: #d9dee6;
+  --accent: #2a5bd7;
+  --principal: #e8f0fe;
+  --principal-line: #4a72c9;
+  --group: #eaf6ec;
+  --group-line: #3d8b4f;
+  --resource: #fdf1e4;
+  --resource-line: #b8722c;
+  --error: #b42318;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1280px; margin: 0 auto; padding: 1.5rem; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { margin: 0.25rem 0 0.5rem; font-size: 1.6rem; }
+h2 { font-size: 1.2rem; margin: 0 0 0.5rem; }
+h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+code { font-size: 0.9em; background: #eef0f4; padding: 0 0.25em; border-radius: 3px; }
+.muted { color: var(--muted); }
+
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.5rem; background: var(--panel); border-bottom: 1px solid var(--border); }
+.brand { font-weight: 700; color: var(--text); }
+.crumbs { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.panel-error { border-color: var(--error); }
+.panel-error h2 { color: var(--error); }
+
+.cards { list-style: none; padding: 0; display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+
+table { border-collapse: collapse; width: 100%; background: var(--panel); }
+th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.explorer { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 1rem; align-items: start; margin-top: 1rem; }
+@media (max-width: 900px) { .explorer { grid-template-columns: 1fr; } }
+
+.search { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.search input[type="search"] { flex: 1 1 100%; padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; }
+.search select, .search button { padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.search button { background: var(--accent); color: #fff; border-color: var(--accent); cursor: pointer; }
+
+.results { list-style: none; padding: 0; margin: 0; }
+.results li { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.25rem; border-bottom: 1px solid var(--border); }
+.results li.active { background: #eef3ff; }
+.results li a { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.results .id { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; }
+.pager { display: flex; justify-content: space-between; margin-top: 0.75rem; }
+
+.badge { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+.badge-principal { background: var(--principal); border-color: var(--principal-line); }
+.badge-group { background: var(--group); border-color: var(--group-line); }
+.badge-resource { background: var(--resource); border-color: var(--resource-line); }
+.badge-match { color: var(--muted); }
+.badge-perm-read { background: #f1f3f6; }
+.badge-perm-write { background: #fff4d6; border-color: #c99a06; }
+.badge-perm-admin { background: #fde8e7; border-color: var(--error); }
+
+.detail h2 { display: flex; align-items: center; gap: 0.5rem; }
+.sections { display: grid; gap: 0 1.5rem; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.edge-list { list-style: none; padding: 0; margin: 0; }
+.edge-list li { display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; }
+
+.graph { display: block; margin: 0.5rem 0 1rem; max-width: 100%; }
+.graph-node rect { stroke-width: 1.5; }
+.graph-node text { font-size: 12px; fill: var(--text); pointer-events: none; }
+.graph-node-principal rect { fill: var(--principal); stroke: var(--principal-line); }
+.graph-node-group rect { fill: var(--group); stroke: var(--group-line); }
+.graph-node-resource rect { fill: var(--resource); stroke: var(--resource-line); }
+.graph-node-selected rect { stroke-width: 3; }
+.graph-node-selected text { font-weight: 700; }
+a:hover .graph-node rect { stroke-width: 2.5; }
+.graph-edge line { stroke: #9aa3b2; stroke-width: 1.5; }
+.graph-edge-grant line { stroke: #c99a06; stroke-dasharray: 5 3; }
+.graph-edge text { font-size: 11px; fill: var(--muted); }
+.graph-arrow { fill: #9aa3b2; }
+.graph-more { font-size: 12px; fill: var(--muted); }

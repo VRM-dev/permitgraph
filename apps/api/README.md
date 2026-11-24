@@ -130,6 +130,7 @@ GET /workspaces/:id/snapshots/:sid/nodes?q=platform&kind=group
 
 `…/nodes/:nodeId` returns the node, its `outgoing` edges (memberships it has,
 grants it holds) and its `incoming` edges (a group's members, the grants on a
-resource), using the edge ids from the normalized graph. Normalized graphs are
-cached in memory per snapshot; snapshots never change, so the cache never goes
-stale.
+resource), using the edge ids from the normalized graph, plus `neighbours`:
+each node at the other end of those edges once, so a client can label them.
+Normalized graphs are cached in memory per snapshot; snapshots never change,
+so the cache never goes stale.

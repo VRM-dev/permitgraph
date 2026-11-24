@@ -88,16 +88,26 @@ export interface NodeNeighbourhood {
   outgoing: GraphEdge[];
   /** Edges that end at the node: a group's members, a resource's grants. */
   incoming: GraphEdge[];
+  /**
+   * The nodes at the other end of those edges, each once, in graph order
+   * (kind, then id), so a client can label them without more requests.
+   */
+  neighbours: GraphNode[];
 }
 
 /** The node and its direct edges, or null when the id is not in the graph. */
 export function nodeNeighbourhood(graph: NormalizedGraph, nodeId: string): NodeNeighbourhood | null {
   const node = graph.nodes.find((n) => n.id === nodeId);
   if (!node) return null;
+  const outgoing = graph.edges.filter((e) => e.from === nodeId);
+  const incoming = graph.edges.filter((e) => e.to === nodeId);
+  const neighbourIds = new Set([...outgoing.map((e) => e.to), ...incoming.map((e) => e.from)]);
+  neighbourIds.delete(nodeId);
   return {
     node,
-    outgoing: graph.edges.filter((e) => e.from === nodeId),
-    incoming: graph.edges.filter((e) => e.to === nodeId),
+    outgoing,
+    incoming,
+    neighbours: graph.nodes.filter((n) => neighbourIds.has(n.id)),
   };
 }
 

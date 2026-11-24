@@ -81,10 +81,13 @@ The repository is a pnpm workspace (Node 22, see `.nvmrc`):
 | Package | Contents |
 |---|---|
 | [`packages/evaluator`](packages/evaluator/README.md) | Standalone graph evaluator, no I/O |
-| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces, roles, immutable snapshots, synthetic seed |
+| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces, roles, immutable snapshots, graph search, synthetic seed |
+| [`apps/web`](apps/web/README.md) | Next.js UI: workspaces, snapshots and a graph explorer |
 
 ```sh
 pnpm install
 pnpm lint && pnpm typecheck && pnpm test
 docker compose up -d postgres   # local PostgreSQL for the API, see apps/api/README.md
+pnpm --filter @permitgraph/api dev   # API on :3001
+pnpm --filter @permitgraph/web dev   # UI on http://localhost:3000
 ```

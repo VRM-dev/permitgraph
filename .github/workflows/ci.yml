@@ -52,3 +52,4 @@ jobs:
         run: |
           test -f packages/evaluator/dist/index.js && test -f packages/evaluator/dist/index.d.ts
           test -f apps/api/dist/server.js && test -f apps/api/dist/app.js
+          test -f apps/web/.next/BUILD_ID

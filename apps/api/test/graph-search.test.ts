@@ -146,6 +146,20 @@ describe("graph search routes", () => {
     expect(body.incoming.every((e: { kind: string; to: string }) => e.kind === "member_of" && e.to === "g-contractors")).toBe(true);
   });
 
+  it("lists each neighbour of a node once, with its label", async () => {
+    const res = await get("u-vera", `/workspaces/${acmeId}/snapshots/${sampleId}/nodes/g-contractors`);
+    const body = res.json();
+    const ids = new Set([
+      ...body.outgoing.map((e: { to: string }) => e.to),
+      ...body.incoming.map((e: { from: string }) => e.from),
+    ]);
+    expect(body.neighbours.map((n: { id: string }) => n.id).sort()).toEqual([...ids].sort());
+    expect(body.neighbours).toContainEqual({ id: "g-engineering", kind: "group", type: "group", label: "Engineering" });
+    expect(body.neighbours).toContainEqual(expect.objectContaining({ id: "repo-web", kind: "resource" }));
+    const kinds = body.neighbours.map((n: { kind: string }) => n.kind);
+    expect(kinds).toEqual([...kinds].sort((a: string, b: string) => ["principal", "group", "resource"].indexOf(a) - ["principal", "group", "resource"].indexOf(b)));
+  });
+
   it("returns 404 for an unknown node", async () => {
     const res = await get("u-vera", `/workspaces/${acmeId}/snapshots/${sampleId}/nodes/u-nobody`);
     expect(res.statusCode).toBe(404);
