@@ -21,7 +21,24 @@ inherited through nested groups is reported as `NOT_MEMBER` by this query.
 Unknown ids throw `GraphError` (`UNKNOWN_MEMBER` / `UNKNOWN_GROUP`) instead
 of returning `NOT_MEMBER`.
 
-Tests use the synthetic `test/fixtures/tiny-org.ts` snapshot.
+### Grants and normalization
+
+A snapshot may also list `grants` (`{ subject, resource, permission }`, with
+`permission` one of `read` < `write` < `admin`). The subject is a principal or
+a group; `buildGraph` rejects unknown subjects (`UNKNOWN_SUBJECT`), targets
+that are not resources (`UNKNOWN_RESOURCE`) and other permissions
+(`INVALID_PERMISSION`). `grants` is optional, so older snapshots stay valid.
+
+`normalizeSnapshot(snapshot)` returns one sorted `nodes` list and one sorted
+`edges` list (`member_of` and `grant` edges) with duplicates removed and
+stable edge ids such as `member_of:g-contractors->g-engineering` or
+`grant:write:g-contractors->repo-web`. The same graph gives the same result
+whatever order its arrays were in, and `toSnapshot` turns it back into a
+snapshot (`normalizeSnapshot(toSnapshot(n))` equals `n`).
+
+Tests use two synthetic snapshots: `test/fixtures/tiny-org.ts` and the
+40-identity `test/fixtures/sample-org.ts` (34 users, 6 service accounts,
+nested groups and grants on six repositories).
 
 ```sh
 pnpm --filter @permitgraph/evaluator test

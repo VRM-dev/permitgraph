@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, InjectOptions } from "fastify";
 import { buildApp, USER_HEADER } from "../src/app.js";
 import { InMemorySnapshotStore } from "../src/memory-snapshot-store.js";
 import { InMemoryWorkspaceStore } from "../src/memory-store.js";
@@ -39,7 +39,7 @@ const smallGraph = {
   resources: [{ id: "repo-docs", kind: "repository" }],
 };
 
-function importAs(userId: string, workspaceId: string, payload: unknown) {
+function importAs(userId: string, workspaceId: string, payload: NonNullable<InjectOptions["payload"]>) {
   return app.inject({ method: "POST", url: `/workspaces/${workspaceId}/snapshots`, headers: as(userId), payload });
 }
 
