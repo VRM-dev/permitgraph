@@ -29,6 +29,8 @@ don't reveal anything across tenants.
 | POST | `/workspaces/:workspaceId/snapshots` | `{ label, graph }`; needs `snapshot:import`; `422 INVALID_SNAPSHOT` with the issue list |
 | GET | `/workspaces/:workspaceId/snapshots` | Summaries (counts, content hash), newest first |
 | GET | `/workspaces/:workspaceId/snapshots/:snapshotId` | Summary plus the full graph |
+| GET | `/workspaces/:workspaceId/snapshots/:snapshotId/nodes` | Node search: `q`, `kind`, `type`, `limit` (≤100, default 25), `offset` |
+| GET | `/workspaces/:workspaceId/snapshots/:snapshotId/nodes/:nodeId` | One node with its incoming and outgoing edges |
 
 Errors use one envelope: `{ "error": { "code": "...", "message": "..." } }`.
 `422 INVALID_SNAPSHOT` adds `errorCount`, `warningCount`, `issues` and
@@ -105,3 +107,29 @@ pnpm --filter @permitgraph/api db:seed
 pnpm --filter @permitgraph/api dev
 pnpm --filter @permitgraph/api test
 ```
+
+## Graph search
+
+Search reads the normalized graph of one stored snapshot, so any member of
+the workspace can use it and snapshots of other workspaces are `404`.
+
+- `q` matches the node id or label (display name), case-insensitively. Exact
+  matches come first, then prefix matches, then substring matches; within each
+  group nodes are ordered principals → groups → resources, then by id. Each
+  hit carries `match: "exact" | "prefix" | "contains"`.
+- `kind` is `principal`, `group` or `resource`; `type` is the finer kind
+  (`user`, `service`, `group` or a resource kind such as `repository`).
+- Without `q` the filtered nodes are listed in that same order.
+- `total` counts every match; `limit`/`offset` page through them.
+
+```
+GET /workspaces/:id/snapshots/:sid/nodes?q=platform&kind=group
+{ "snapshotId": "…", "total": 1, "limit": 25, "offset": 0,
+  "nodes": [{ "id": "g-platform", "kind": "group", "type": "group", "label": "Platform", "match": "exact" }] }
+```
+
+`…/nodes/:nodeId` returns the node, its `outgoing` edges (memberships it has,
+grants it holds) and its `incoming` edges (a group's members, the grants on a
+resource), using the edge ids from the normalized graph. Normalized graphs are
+cached in memory per snapshot; snapshots never change, so the cache never goes
+stale.

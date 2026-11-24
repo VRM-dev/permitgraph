@@ -13,6 +13,7 @@ import {
 import { HttpError, InvalidSnapshotError, LastOwnerError, SlugTakenError } from "./errors.js";
 import { can, type Action } from "./roles.js";
 import type { SnapshotStore } from "./snapshot-store.js";
+import { NormalizedGraphCache, nodeNeighbourhood, searchNodes, searchQuerySchema } from "./graph-search.js";
 import { checkImport, importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS, validateImportBody } from "./snapshots.js";
 import type { WorkspaceStore } from "./store.js";
 
@@ -26,6 +27,8 @@ export interface AppOptions {
   store: WorkspaceStore;
   snapshots: SnapshotStore;
   logger?: boolean;
+  /** Normalized graphs kept in memory for search; defaults to 16 snapshots. */
+  graphCache?: NormalizedGraphCache;
 }
 
 const slugSchema = z
@@ -36,9 +39,11 @@ const workspaceParams = z.object({ workspaceId: z.string().min(1).max(64) });
 const memberParams = workspaceParams.extend({ userId: z.string().min(1).max(64) });
 const setRoleBody = z.object({ role: z.enum(WORKSPACE_ROLES) }).strict();
 const snapshotParams = workspaceParams.extend({ snapshotId: z.string().min(1).max(64) });
+const nodeParams = snapshotParams.extend({ nodeId: z.string().min(1).max(200) });
 
 export function buildApp(options: AppOptions): FastifyInstance {
   const { store, snapshots } = options;
+  const graphCache = options.graphCache ?? new NormalizedGraphCache();
   const app = Fastify({ logger: options.logger ?? false });
 
   app.setErrorHandler((error: unknown, request, reply) => {
@@ -190,6 +195,37 @@ export function buildApp(options: AppOptions): FastifyInstance {
     const snapshot = await snapshots.findSnapshot(workspaceId, snapshotId);
     if (!snapshot) throw new HttpError(404, "NOT_FOUND", "Snapshot not found");
     return { snapshot: snapshotJson(snapshot) };
+  });
+
+  /** Loads a snapshot of the caller's workspace and its normalized graph. */
+  async function readGraph(request: FastifyRequest, workspaceId: string, snapshotId: string) {
+    const user = await authenticate(request);
+    await authorize(workspaceId, user, "workspace:read");
+    const snapshot = await snapshots.findSnapshot(workspaceId, snapshotId);
+    if (!snapshot) throw new HttpError(404, "NOT_FOUND", "Snapshot not found");
+    return { snapshot, graph: graphCache.get(snapshot.id, snapshot.graph) };
+  }
+
+  /**
+   * Searches the nodes of one snapshot by id or label (`q`), narrowed by
+   * `kind` (principal/group/resource) and `type` (user, service, group or a
+   * resource kind). Results are ranked exact, prefix, then substring and
+   * paged with `limit`/`offset`.
+   */
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId/nodes", async (request) => {
+    const { workspaceId, snapshotId } = snapshotParams.parse(request.params);
+    const query = searchQuerySchema.parse(request.query);
+    const { snapshot, graph } = await readGraph(request, workspaceId, snapshotId);
+    return { snapshotId: snapshot.id, ...searchNodes(graph, query) };
+  });
+
+  /** One node with its direct incoming and outgoing edges. */
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId/nodes/:nodeId", async (request) => {
+    const { workspaceId, snapshotId, nodeId } = nodeParams.parse(request.params);
+    const { snapshot, graph } = await readGraph(request, workspaceId, snapshotId);
+    const found = nodeNeighbourhood(graph, nodeId);
+    if (!found) throw new HttpError(404, "NOT_FOUND", "Node not found in this snapshot");
+    return { snapshotId: snapshot.id, ...found };
   });
 
   return app;
