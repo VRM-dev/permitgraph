@@ -12,6 +12,7 @@ works with plain links and forms.
 | `/` | Workspaces of the current user, with their role |
 | `/workspaces/:workspaceId` | The workspace's snapshots with node and edge counts |
 | `/workspaces/:workspaceId/snapshots/:snapshotId` | Graph explorer |
+| `/workspaces/:workspaceId/snapshots/:snapshotId/access` | Access-path inspector |
 
 ## Graph explorer
 
@@ -31,6 +32,17 @@ works with plain links and forms.
   The search, page and selected node live in the URL, so any view can be
   shared.
 
+## Access-path inspector
+
+Enter a subject (user, service or group id) and a resource (suggested from the
+snapshot's resources), optionally with the lowest permission to look for. The
+page says whether access is granted and the strongest permission reached, then
+lists each path as a chain — e.g. *Casey Contractor → member of → Contractors →
+member of → Platform → write → acme/infra* — strongest and shortest first.
+Every node links back to the explorer. From the explorer, a selected principal
+or group links to "Trace its access" and a resource to "Trace who can reach
+it". Subject, resource and permission live in the URL.
+
 ## Configuration
 
 Set in `apps/web/.env.local` or the environment:
@@ -48,5 +60,5 @@ There is no sign-in yet; the UI acts as that one user. With the synthetic seed,
 ```sh
 pnpm --filter @permitgraph/api dev     # API on :3001 (needs PostgreSQL and the seed)
 pnpm --filter @permitgraph/web dev     # http://localhost:3000
-pnpm --filter @permitgraph/web test    # Vitest: API client, URL state, layout, SVG rendering
+pnpm --filter @permitgraph/web test    # Vitest: API client, URL state, layout, SVG and path rendering
 ```

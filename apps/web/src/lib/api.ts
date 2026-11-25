@@ -1,4 +1,12 @@
-import type { NodeKind, NodeNeighbourhood, NodeSearchResult, SnapshotSummary, Workspace } from "./types";
+import type {
+  AccessExplanation,
+  NodeKind,
+  NodeNeighbourhood,
+  NodeSearchResult,
+  Permission,
+  SnapshotSummary,
+  Workspace,
+} from "./types";
 
 /** An API call that did not return 2xx, or the API could not be reached. */
 export class ApiError extends Error {
@@ -34,6 +42,12 @@ export interface SearchParams {
   kind?: NodeKind;
   limit?: number;
   offset?: number;
+}
+
+export interface AccessParams {
+  subject: string;
+  resource: string;
+  permission?: Permission;
 }
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -93,6 +107,13 @@ export function createApiClient(config: ApiConfig, fetchImpl: FetchLike = fetch)
     },
     getNode(workspaceId: string, snapshotId: string, nodeId: string): Promise<NodeNeighbourhood> {
       return get(["workspaces", workspaceId, "snapshots", snapshotId, "nodes", nodeId]);
+    },
+    explainAccess(workspaceId: string, snapshotId: string, params: AccessParams): Promise<AccessExplanation> {
+      return get(["workspaces", workspaceId, "snapshots", snapshotId, "access"], {
+        subject: params.subject,
+        resource: params.resource,
+        permission: params.permission,
+      });
     },
   };
 }

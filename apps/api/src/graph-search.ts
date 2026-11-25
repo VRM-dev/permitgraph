@@ -1,5 +1,8 @@
 import {
+  buildGraph,
   normalizeSnapshot,
+  toSnapshot,
+  type AccessGraph,
   type GraphEdge,
   type GraphNode,
   type GraphSnapshot,
@@ -111,30 +114,51 @@ export function nodeNeighbourhood(graph: NormalizedGraph, nodeId: string): NodeN
   };
 }
 
+interface CacheEntry {
+  normalized: NormalizedGraph;
+  /** Indexed form for access questions, built on first use. */
+  access?: AccessGraph;
+}
+
 /**
- * Normalized graphs of stored snapshots, keyed by snapshot id. Snapshots
- * never change, so an entry never goes stale; the cache is only bounded in
- * size (least recently used entry dropped first).
+ * Normalized and indexed graphs of stored snapshots, keyed by snapshot id.
+ * Snapshots never change, so an entry never goes stale; the cache is only
+ * bounded in size (least recently used snapshot dropped first).
  */
 export class NormalizedGraphCache {
-  private readonly entries = new Map<string, NormalizedGraph>();
+  private readonly entries = new Map<string, CacheEntry>();
 
   constructor(private readonly maxEntries = 16) {}
 
+  /** The normalized graph of a snapshot. */
   get(snapshotId: string, graph: GraphSnapshot): NormalizedGraph {
+    return this.entry(snapshotId, graph).normalized;
+  }
+
+  /**
+   * The indexed graph of a snapshot, built from its normalized form so it
+   * agrees with what search and node lookups show.
+   */
+  accessGraph(snapshotId: string, graph: GraphSnapshot): AccessGraph {
+    const entry = this.entry(snapshotId, graph);
+    entry.access ??= buildGraph(toSnapshot(entry.normalized));
+    return entry.access;
+  }
+
+  private entry(snapshotId: string, graph: GraphSnapshot): CacheEntry {
     const cached = this.entries.get(snapshotId);
     if (cached) {
       this.entries.delete(snapshotId);
       this.entries.set(snapshotId, cached);
       return cached;
     }
-    const normalized = normalizeSnapshot(graph);
-    this.entries.set(snapshotId, normalized);
+    const entry: CacheEntry = { normalized: normalizeSnapshot(graph) };
+    this.entries.set(snapshotId, entry);
     if (this.entries.size > this.maxEntries) {
       const oldest = this.entries.keys().next().value;
       if (oldest !== undefined) this.entries.delete(oldest);
     }
-    return normalized;
+    return entry;
   }
 
   get size(): number {

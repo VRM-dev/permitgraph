@@ -3,6 +3,7 @@ import { ApiErrorPanel } from "../../../../../components/api-error";
 import { KindBadge, MatchBadge } from "../../../../../components/badges";
 import { NeighbourhoodGraph } from "../../../../../components/neighbourhood-graph";
 import { NodeDetails } from "../../../../../components/node-details";
+import { accessHref, accessPath } from "../../../../../lib/access-url";
 import { ApiError, apiConfig, createApiClient } from "../../../../../lib/api";
 import { PAGE_SIZE, explorerHref, explorerPath, parseExplorerState } from "../../../../../lib/explorer-url";
 import { layoutNeighbourhood } from "../../../../../lib/neighbourhood-layout";
@@ -63,6 +64,7 @@ export default async function ExplorerPage({ params, searchParams }: Props) {
   const select = (nodeId: string) => explorerHref(base, { ...state, node: nodeId });
   const page = (offset: number) => explorerHref(base, { ...state, offset });
   const offset = results.offset;
+  const inspector = accessPath(workspaceId, snapshotId);
 
   return (
     <>
@@ -72,7 +74,8 @@ export default async function ExplorerPage({ params, searchParams }: Props) {
       <h1>{snapshot.label || snapshot.id}</h1>
       <p className="muted">
         {snapshot.counts.principals} principals · {snapshot.counts.groups} groups · {snapshot.counts.resources} resources ·{" "}
-        {snapshot.counts.memberships} memberships · {snapshot.counts.grants} grants
+        {snapshot.counts.memberships} memberships · {snapshot.counts.grants} grants ·{" "}
+        <a href={inspector}>Trace access paths</a>
       </p>
 
       <div className="explorer">
@@ -122,7 +125,15 @@ export default async function ExplorerPage({ params, searchParams }: Props) {
                 {selected.node.label} <KindBadge node={selected.node} />
               </h2>
               <p className="muted">
-                <code>{selected.node.id}</code>
+                <code>{selected.node.id}</code> ·{" "}
+                <a
+                  href={accessHref(
+                    inspector,
+                    selected.node.kind === "resource" ? { resource: selected.node.id } : { subject: selected.node.id },
+                  )}
+                >
+                  {selected.node.kind === "resource" ? "Trace who can reach it" : "Trace its access"}
+                </a>
               </p>
               <NeighbourhoodGraph layout={layoutNeighbourhood(selected)} hrefFor={select} />
               <NodeDetails data={selected} hrefFor={select} />

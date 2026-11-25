@@ -8,6 +8,8 @@ export type ErrorCode =
   | "SLUG_TAKEN"
   | "LAST_OWNER"
   | "INVALID_SNAPSHOT"
+  | "UNKNOWN_SUBJECT"
+  | "UNKNOWN_RESOURCE"
   | "INTERNAL";
 
 export class HttpError extends Error {

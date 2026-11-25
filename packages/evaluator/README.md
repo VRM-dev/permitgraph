@@ -43,6 +43,19 @@ capped by `maxIssues` (default 100). It is valid exactly when `buildGraph`
 accepts the snapshot. Duplicate memberships and grants are warnings
 (`DUPLICATE_MEMBERSHIP`, `DUPLICATE_GRANT`), since normalization drops them.
 
+### Access paths
+
+`explainAccess(graph, subject, resource, { permission? })` explains how a
+principal or group reaches a resource. Membership is transitive and a higher
+permission includes the lower ones. It returns `effective` (strongest
+permission reached, or `null`), `outcome` (`GRANTED` / `NOT_GRANTED` for the
+requested permission, or for any access) and `paths`: each with `via` (subject
+→ … → grant holder), the `memberships` followed and the `grant`, strongest
+first, then shortest. Membership cycles are not followed twice. `maxPaths`
+(20), `maxDepth` (32) and `maxSteps` (10 000) bound the listing and set
+`truncated`; `effective` and `outcome` come from plain reachability and stay
+exact. Unknown ids throw `UNKNOWN_SUBJECT` / `UNKNOWN_RESOURCE`.
+
 Tests use two synthetic snapshots: `test/fixtures/tiny-org.ts` and the
 40-identity `test/fixtures/sample-org.ts` (34 users, 6 service accounts,
 nested groups and grants on six repositories).

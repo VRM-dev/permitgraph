@@ -47,6 +47,17 @@ describe("createApiClient", () => {
     expect(new URL(calls[1]!.url).pathname).toBe("/workspaces/w1/snapshots/s1/nodes/repo%3Aweb");
   });
 
+  it("asks for access paths with the permission only when given", async () => {
+    const { impl, calls } = fakeFetch(200, { paths: [] });
+    const client = createApiClient(config, impl);
+    await client.explainAccess("w1", "s1", { subject: "p-contractor", resource: "repo-infra", permission: "write" });
+    await client.explainAccess("w1", "s1", { subject: "g-platform", resource: "repo-infra" });
+    const [first, second] = calls.map((c) => new URL(c.url));
+    expect(first!.pathname).toBe("/workspaces/w1/snapshots/s1/access");
+    expect(Object.fromEntries(first!.searchParams)).toEqual({ subject: "p-contractor", resource: "repo-infra", permission: "write" });
+    expect(Object.fromEntries(second!.searchParams)).toEqual({ subject: "g-platform", resource: "repo-infra" });
+  });
+
   it("turns the error envelope into an ApiError", async () => {
     const { impl } = fakeFetch(404, { error: { code: "NOT_FOUND", message: "Workspace not found" } });
     const error = await createApiClient(config, impl).getWorkspace("nope").catch((e: unknown) => e);

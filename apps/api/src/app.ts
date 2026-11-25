@@ -13,6 +13,7 @@ import {
 import { HttpError, InvalidSnapshotError, LastOwnerError, SlugTakenError } from "./errors.js";
 import { can, type Action } from "./roles.js";
 import type { SnapshotStore } from "./snapshot-store.js";
+import { accessPaths, accessQuerySchema } from "./access-paths.js";
 import { NormalizedGraphCache, nodeNeighbourhood, searchNodes, searchQuerySchema } from "./graph-search.js";
 import { checkImport, importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS, validateImportBody } from "./snapshots.js";
 import type { WorkspaceStore } from "./store.js";
@@ -226,6 +227,20 @@ export function buildApp(options: AppOptions): FastifyInstance {
     const found = nodeNeighbourhood(graph, nodeId);
     if (!found) throw new HttpError(404, "NOT_FOUND", "Node not found in this snapshot");
     return { snapshotId: snapshot.id, ...found };
+  });
+
+  /**
+   * Access-path inspector: how `subject` (principal or group) reaches
+   * `resource`, optionally for at least `permission`. Returns the effective
+   * permission, GRANTED/NOT_GRANTED and up to `limit` paths of membership
+   * edges ending in a grant, strongest and shortest first.
+   */
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId/access", async (request) => {
+    const { workspaceId, snapshotId } = snapshotParams.parse(request.params);
+    const query = accessQuerySchema.parse(request.query);
+    const { snapshot, graph } = await readGraph(request, workspaceId, snapshotId);
+    const access = graphCache.accessGraph(snapshot.id, snapshot.graph);
+    return { snapshotId: snapshot.id, ...accessPaths(graph, access, query) };
   });
 
   return app;

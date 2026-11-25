@@ -86,3 +86,23 @@ a:hover .graph-node rect { stroke-width: 2.5; }
 .graph-edge text { font-size: 11px; fill: var(--muted); }
 .graph-arrow { fill: #9aa3b2; }
 .graph-more { font-size: 12px; fill: var(--muted); }
+
+.access-form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin: 1rem 0; }
+.access-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; color: var(--muted); }
+.access-form input, .access-form select { padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; min-width: 14rem; color: var(--text); }
+.access-form select { min-width: 8rem; background: var(--panel); }
+.access-form button { padding: 0.45rem 0.9rem; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+.access-panel h2 a { color: var(--text); }
+
+.verdict { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); }
+.verdict-granted { background: var(--group); border-color: var(--group-line); }
+.verdict-not-granted { background: #f1f3f6; }
+.paths { list-style: none; padding: 0; margin: 0; }
+.paths > li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+.path-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; list-style: none; padding: 0; margin: 0; }
+.path-node { display: flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--border); }
+.path-node-principal { background: var(--principal); border-color: var(--principal-line); }
+.path-node-group { background: var(--group); border-color: var(--group-line); }
+.path-node-resource { background: var(--resource); border-color: var(--resource-line); }
+.path-edge { color: var(--muted); font-size: 0.8rem; }
+.path-edge::after { content: " →"; }

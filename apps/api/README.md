@@ -31,6 +31,7 @@ don't reveal anything across tenants.
 | GET | `/workspaces/:workspaceId/snapshots/:snapshotId` | Summary plus the full graph |
 | GET | `/workspaces/:workspaceId/snapshots/:snapshotId/nodes` | Node search: `q`, `kind`, `type`, `limit` (≤100, default 25), `offset` |
 | GET | `/workspaces/:workspaceId/snapshots/:snapshotId/nodes/:nodeId` | One node with its incoming and outgoing edges |
+| GET | `/workspaces/:workspaceId/snapshots/:snapshotId/access` | Access paths: `subject`, `resource`, `permission` (optional), `limit` (≤50, default 20) |
 
 Errors use one envelope: `{ "error": { "code": "...", "message": "..." } }`.
 `422 INVALID_SNAPSHOT` adds `errorCount`, `warningCount`, `issues` and
@@ -134,3 +135,32 @@ resource), using the edge ids from the normalized graph, plus `neighbours`:
 each node at the other end of those edges once, so a client can label them.
 Normalized graphs are cached in memory per snapshot; snapshots never change,
 so the cache never goes stale.
+
+## Access paths
+
+`…/access?subject=p-contractor&resource=repo-infra&permission=write` explains
+how a principal or group reaches a resource in one snapshot. Membership is
+transitive (a member of a group holds the grants of every group above it) and
+`admin` includes `write`, which includes `read`.
+
+```
+{ "snapshotId": "…", "outcome": "GRANTED", "permission": "write", "effective": "write",
+  "subject": { "id": "p-contractor", … }, "resource": { "id": "repo-infra", … },
+  "paths": [{ "permission": "write",
+              "nodes": ["p-contractor", "g-contractors", "g-platform", "repo-infra"],
+              "edges": [{ "id": "member_of:p-contractor->g-contractors", … },
+                        { "id": "member_of:g-contractors->g-platform", … },
+                        { "id": "grant:write:g-platform->repo-infra", … }] }],
+  "totalPaths": 1, "truncated": false, "nodes": [ … ] }
+```
+
+- `effective` is the strongest permission reachable at all (`null` for none);
+  `outcome` is `GRANTED` when it meets `permission` (or is any access when no
+  permission is given). Both are exact even when the path list is cut short.
+- `paths` only lists paths that grant at least `permission`, strongest first,
+  then shortest. `truncated` is true when paths were left out by `limit` or by
+  the evaluator's traversal bounds. Edge ids match the node lookup.
+- Unknown ids are `404` with `UNKNOWN_SUBJECT` or `UNKNOWN_RESOURCE`, so a typo
+  is never reported as "no access". Viewers can use it; other workspaces'
+  snapshots are `404`.
+- These are grants only: there are no deny rules or conditions yet.

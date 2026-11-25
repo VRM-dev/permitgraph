@@ -78,3 +78,29 @@ export interface NodeNeighbourhood {
   incoming: GraphEdge[];
   neighbours: GraphNode[];
 }
+
+export const PERMISSIONS: readonly Permission[] = ["read", "write", "admin"];
+
+export interface AccessPath {
+  /** Permission granted at the end of the path. */
+  permission: Permission;
+  /** Node ids from the subject to the resource. */
+  nodes: string[];
+  /** Membership edges in order, then the grant edge. */
+  edges: GraphEdge[];
+}
+
+export interface AccessExplanation {
+  snapshotId: string;
+  subject: GraphNode;
+  resource: GraphNode;
+  permission?: Permission;
+  /** Strongest permission reachable through any path, or null for none. */
+  effective: Permission | null;
+  outcome: "GRANTED" | "NOT_GRANTED";
+  paths: AccessPath[];
+  totalPaths: number;
+  truncated: boolean;
+  /** Every node on the listed paths, for labels. */
+  nodes: GraphNode[];
+}
