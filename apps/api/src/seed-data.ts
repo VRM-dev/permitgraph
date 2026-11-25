@@ -46,6 +46,12 @@ const acmeGraph: GraphSnapshot = {
     { id: "repo-infra", kind: "repository", displayName: "acme/infra" },
     { id: "repo-web", kind: "repository", displayName: "acme/web" },
   ],
+  grants: [
+    { subject: "g-engineering", resource: "repo-api", permission: "read" },
+    { subject: "g-platform", resource: "repo-infra", permission: "write" },
+    { subject: "g-contractors", resource: "repo-web", permission: "write" },
+    { subject: "svc-deploy", resource: "repo-infra", permission: "admin" },
+  ],
 };
 
 /**
@@ -68,6 +74,7 @@ const globexGraph: GraphSnapshot = {
     { member: "g-oncall", group: "g-engineering" },
   ],
   resources: [{ id: "repo-api", kind: "repository", displayName: "globex/api" }],
+  grants: [{ subject: "g-engineering", resource: "repo-api", permission: "write" }],
 };
 
 export interface SeedWorkspace {

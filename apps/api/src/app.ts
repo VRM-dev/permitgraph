@@ -13,7 +13,9 @@ import {
 import { HttpError, InvalidSnapshotError, LastOwnerError, SlugTakenError } from "./errors.js";
 import { can, type Action } from "./roles.js";
 import type { SnapshotStore } from "./snapshot-store.js";
-import { importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS } from "./snapshots.js";
+import { accessPaths, accessQuerySchema } from "./access-paths.js";
+import { NormalizedGraphCache, nodeNeighbourhood, searchNodes, searchQuerySchema } from "./graph-search.js";
+import { checkImport, importSnapshotBody, prepareSnapshot, SNAPSHOT_LIMITS, validateImportBody } from "./snapshots.js";
 import type { WorkspaceStore } from "./store.js";
 
 /**
@@ -26,6 +28,8 @@ export interface AppOptions {
   store: WorkspaceStore;
   snapshots: SnapshotStore;
   logger?: boolean;
+  /** Normalized graphs kept in memory for search; defaults to 16 snapshots. */
+  graphCache?: NormalizedGraphCache;
 }
 
 const slugSchema = z
@@ -36,14 +40,16 @@ const workspaceParams = z.object({ workspaceId: z.string().min(1).max(64) });
 const memberParams = workspaceParams.extend({ userId: z.string().min(1).max(64) });
 const setRoleBody = z.object({ role: z.enum(WORKSPACE_ROLES) }).strict();
 const snapshotParams = workspaceParams.extend({ snapshotId: z.string().min(1).max(64) });
+const nodeParams = snapshotParams.extend({ nodeId: z.string().min(1).max(200) });
 
 export function buildApp(options: AppOptions): FastifyInstance {
   const { store, snapshots } = options;
+  const graphCache = options.graphCache ?? new NormalizedGraphCache();
   const app = Fastify({ logger: options.logger ?? false });
 
   app.setErrorHandler((error: unknown, request, reply) => {
     if (error instanceof HttpError) {
-      return reply.status(error.statusCode).send(envelope(error.code, error.message));
+      return reply.status(error.statusCode).send(envelope(error.code, error.message, error.details));
     }
     if (error instanceof ZodError) {
       const message = error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; ");
@@ -145,10 +151,33 @@ export function buildApp(options: AppOptions): FastifyInstance {
         return reply.status(201).send({ snapshot: snapshotSummaryJson(snapshot) });
       } catch (error) {
         if (error instanceof InvalidSnapshotError) {
-          throw new HttpError(422, "INVALID_SNAPSHOT", `${error.reason}: ${error.message}`);
+          const { report } = error;
+          throw new HttpError(422, "INVALID_SNAPSHOT", error.message, {
+            errorCount: report.errorCount,
+            warningCount: report.warningCount,
+            issues: report.issues,
+            truncated: report.truncated,
+          });
         }
         throw error;
       }
+    },
+  );
+
+  /**
+   * Dry run of an import: reports every problem in the graph (with paths)
+   * and, for a valid graph, the counts and content hash an import would
+   * store. Nothing is written. Same permission and size limits as an import.
+   */
+  app.post(
+    "/workspaces/:workspaceId/imports/validate",
+    { bodyLimit: SNAPSHOT_LIMITS.bodyBytes },
+    async (request) => {
+      const user = await authenticate(request);
+      const { workspaceId } = workspaceParams.parse(request.params);
+      await authorize(workspaceId, user, "snapshot:import");
+      const body = validateImportBody.parse(request.body);
+      return { report: checkImport(body.graph as GraphSnapshot) };
     },
   );
 
@@ -169,11 +198,56 @@ export function buildApp(options: AppOptions): FastifyInstance {
     return { snapshot: snapshotJson(snapshot) };
   });
 
+  /** Loads a snapshot of the caller's workspace and its normalized graph. */
+  async function readGraph(request: FastifyRequest, workspaceId: string, snapshotId: string) {
+    const user = await authenticate(request);
+    await authorize(workspaceId, user, "workspace:read");
+    const snapshot = await snapshots.findSnapshot(workspaceId, snapshotId);
+    if (!snapshot) throw new HttpError(404, "NOT_FOUND", "Snapshot not found");
+    return { snapshot, graph: graphCache.get(snapshot.id, snapshot.graph) };
+  }
+
+  /**
+   * Searches the nodes of one snapshot by id or label (`q`), narrowed by
+   * `kind` (principal/group/resource) and `type` (user, service, group or a
+   * resource kind). Results are ranked exact, prefix, then substring and
+   * paged with `limit`/`offset`.
+   */
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId/nodes", async (request) => {
+    const { workspaceId, snapshotId } = snapshotParams.parse(request.params);
+    const query = searchQuerySchema.parse(request.query);
+    const { snapshot, graph } = await readGraph(request, workspaceId, snapshotId);
+    return { snapshotId: snapshot.id, ...searchNodes(graph, query) };
+  });
+
+  /** One node with its direct incoming and outgoing edges. */
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId/nodes/:nodeId", async (request) => {
+    const { workspaceId, snapshotId, nodeId } = nodeParams.parse(request.params);
+    const { snapshot, graph } = await readGraph(request, workspaceId, snapshotId);
+    const found = nodeNeighbourhood(graph, nodeId);
+    if (!found) throw new HttpError(404, "NOT_FOUND", "Node not found in this snapshot");
+    return { snapshotId: snapshot.id, ...found };
+  });
+
+  /**
+   * Access-path inspector: how `subject` (principal or group) reaches
+   * `resource`, optionally for at least `permission`. Returns the effective
+   * permission, GRANTED/NOT_GRANTED and up to `limit` paths of membership
+   * edges ending in a grant, strongest and shortest first.
+   */
+  app.get("/workspaces/:workspaceId/snapshots/:snapshotId/access", async (request) => {
+    const { workspaceId, snapshotId } = snapshotParams.parse(request.params);
+    const query = accessQuerySchema.parse(request.query);
+    const { snapshot, graph } = await readGraph(request, workspaceId, snapshotId);
+    const access = graphCache.accessGraph(snapshot.id, snapshot.graph);
+    return { snapshotId: snapshot.id, ...accessPaths(graph, access, query) };
+  });
+
   return app;
 }
 
-function envelope(code: string, message: string) {
-  return { error: { code, message } };
+function envelope(code: string, message: string, details?: Record<string, unknown>) {
+  return { error: { code, message, ...details } };
 }
 
 function workspaceJson(workspace: Workspace & { role?: string }) {

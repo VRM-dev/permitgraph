@@ -64,6 +64,7 @@ model Snapshot {
   groupCount      Int       @map("group_count")
   membershipCount Int       @map("membership_count")
   resourceCount   Int       @map("resource_count")
+  grantCount      Int       @default(0) @map("grant_count")
   importedById    String    @map("imported_by_id")
   createdAt       DateTime  @default(now()) @map("created_at")
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

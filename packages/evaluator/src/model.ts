@@ -28,11 +28,24 @@ export interface Resource {
   displayName?: string;
 }
 
+/** Permission levels, weakest first. A higher level includes the lower ones. */
+export const PERMISSIONS = ["read", "write", "admin"] as const;
+export type Permission = (typeof PERMISSIONS)[number];
+
+/** `subject` (a principal or a group) holds `permission` on `resource`. */
+export interface Grant {
+  subject: string;
+  resource: string;
+  permission: Permission;
+}
+
 export interface GraphSnapshot {
   principals: readonly Principal[];
   groups: readonly Group[];
   memberships: readonly MembershipEdge[];
   resources: readonly Resource[];
+  /** Optional so snapshots imported before grants existed stay valid. */
+  grants?: readonly Grant[];
 }
 
 export type NodeKind = "principal" | "group" | "resource";

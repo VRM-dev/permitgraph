@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { buildGraph, GraphError, type GraphSnapshot } from "@permitgraph/evaluator";
+import {
+  normalizeSnapshot,
+  toSnapshot,
+  validateSnapshot,
+  type GraphSnapshot,
+  type ValidationReport,
+} from "@permitgraph/evaluator";
 import { z } from "zod";
 import type { SnapshotCounts } from "./domain.js";
 import { InvalidSnapshotError } from "./errors.js";
@@ -8,6 +14,9 @@ import { InvalidSnapshotError } from "./errors.js";
 export const SNAPSHOT_LIMITS = {
   nodesPerKind: 10_000,
   memberships: 50_000,
+  grants: 100_000,
+  /** Issues listed in a validation report; the totals are always complete. */
+  reportIssues: 100,
   bodyBytes: 8 * 1024 * 1024,
 } as const;
 
@@ -24,6 +33,12 @@ export const graphSchema = z
     resources: z
       .array(z.object({ id: nodeId, kind: z.string().min(1).max(64), displayName }).strict())
       .max(SNAPSHOT_LIMITS.nodesPerKind),
+    // Permission is checked by the evaluator, so an unsupported value is
+    // reported with its path like any other graph error.
+    grants: z
+      .array(z.object({ subject: nodeId, resource: nodeId, permission: z.string().min(1).max(32) }).strict())
+      .max(SNAPSHOT_LIMITS.grants)
+      .optional(),
   })
   .strict();
 
@@ -31,33 +46,57 @@ export const importSnapshotBody = z
   .object({ label: z.string().trim().min(1).max(120), graph: graphSchema })
   .strict();
 
+export const validateImportBody = z.object({ graph: graphSchema }).strict();
+
 export interface PreparedSnapshot {
+  /** The normalized graph: sorted, duplicate edges removed. This is what is stored. */
   graph: GraphSnapshot;
   contentHash: string;
   counts: SnapshotCounts;
 }
 
+export interface ImportReport extends ValidationReport {
+  /** Present only for valid graphs: what an import would store. */
+  counts?: SnapshotCounts;
+  contentHash?: string;
+}
+
+/**
+ * Validates a graph with the evaluator and, if it is valid, adds the counts
+ * and content hash of its normalized form. Never stores anything.
+ */
+export function checkImport(graph: GraphSnapshot): ImportReport {
+  const report = validateSnapshot(graph, { maxIssues: SNAPSHOT_LIMITS.reportIssues });
+  if (!report.valid) return report;
+  const prepared = normalize(graph);
+  return { ...report, counts: prepared.counts, contentHash: prepared.contentHash };
+}
+
 /**
  * Checks that a snapshot is a consistent graph (unique ids, no dangling
- * edges) using the evaluator itself, then fingerprints it. Throws
- * `InvalidSnapshotError` instead of storing anything the evaluator would
- * later refuse.
+ * edges, known permissions) and returns its normalized form with a
+ * fingerprint. Because the graph is normalized first, the same graph gets the
+ * same hash whatever order its arrays were in. Throws `InvalidSnapshotError`
+ * with the full report instead of storing anything the evaluator would refuse.
  */
 export function prepareSnapshot(graph: GraphSnapshot): PreparedSnapshot {
-  try {
-    buildGraph(graph);
-  } catch (error) {
-    if (error instanceof GraphError) throw new InvalidSnapshotError(error.code, error.ref, error.message);
-    throw error;
-  }
+  const report = validateSnapshot(graph, { maxIssues: SNAPSHOT_LIMITS.reportIssues });
+  if (!report.valid) throw new InvalidSnapshotError(report);
+  return normalize(graph);
+}
+
+function normalize(graph: GraphSnapshot): PreparedSnapshot {
+  const normalized = normalizeSnapshot(graph);
+  const stored = toSnapshot(normalized);
   return {
-    graph,
-    contentHash: snapshotHash(graph),
+    graph: stored,
+    contentHash: snapshotHash(stored),
     counts: {
-      principals: graph.principals.length,
-      groups: graph.groups.length,
-      memberships: graph.memberships.length,
-      resources: graph.resources.length,
+      principals: normalized.counts.principals,
+      groups: normalized.counts.groups,
+      memberships: normalized.counts.memberships,
+      resources: normalized.counts.resources,
+      grants: normalized.counts.grants,
     },
   };
 }

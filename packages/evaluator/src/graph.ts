@@ -1,6 +1,13 @@
-import type { Group, GraphSnapshot, MembershipEdge, NodeKind, Principal, Resource } from "./model.js";
+import { PERMISSIONS } from "./model.js";
+import type { Grant, Group, GraphSnapshot, MembershipEdge, NodeKind, Principal, Resource } from "./model.js";
 
-export type GraphErrorCode = "DUPLICATE_ID" | "UNKNOWN_MEMBER" | "UNKNOWN_GROUP";
+export type GraphErrorCode =
+  | "DUPLICATE_ID"
+  | "UNKNOWN_MEMBER"
+  | "UNKNOWN_GROUP"
+  | "UNKNOWN_SUBJECT"
+  | "UNKNOWN_RESOURCE"
+  | "INVALID_PERMISSION";
 
 export class GraphError extends Error {
   readonly code: GraphErrorCode;
@@ -26,6 +33,10 @@ export interface AccessGraph {
   readonly membersOf: ReadonlyMap<string, readonly string[]>;
   /** member id -> ids of the groups it belongs to directly, in input order */
   readonly groupsOf: ReadonlyMap<string, readonly string[]>;
+  /** resource id -> grants on it, duplicates removed, in input order */
+  readonly grantsOn: ReadonlyMap<string, readonly Grant[]>;
+  /** subject id -> grants it holds directly, duplicates removed, in input order */
+  readonly grantsHeldBy: ReadonlyMap<string, readonly Grant[]>;
   kindOf(id: string): NodeKind | undefined;
 }
 
@@ -62,12 +73,28 @@ export function buildGraph(snapshot: GraphSnapshot): AccessGraph {
     append(groupsOf, edge.member, edge.group);
   }
 
+  const grantsOn = new Map<string, Grant[]>();
+  const grantsHeldBy = new Map<string, Grant[]>();
+  const seenGrants = new Set<string>();
+
+  for (const grant of snapshot.grants ?? []) {
+    validateGrant(grant, kinds);
+    const key = `${grant.subject}\u0000${grant.resource}\u0000${grant.permission}`;
+    if (seenGrants.has(key)) continue;
+    seenGrants.add(key);
+    const copy: Grant = { subject: grant.subject, resource: grant.resource, permission: grant.permission };
+    append(grantsOn, grant.resource, copy);
+    append(grantsHeldBy, grant.subject, copy);
+  }
+
   return {
     principals,
     groups,
     resources,
     membersOf,
     groupsOf,
+    grantsOn,
+    grantsHeldBy,
     kindOf: (id) => kinds.get(id),
   };
 }
@@ -82,7 +109,24 @@ function validateEdge(edge: MembershipEdge, kinds: ReadonlyMap<string, NodeKind>
   }
 }
 
-function append(map: Map<string, string[]>, key: string, value: string): void {
+function validateGrant(grant: Grant, kinds: ReadonlyMap<string, NodeKind>): void {
+  const subjectKind = kinds.get(grant.subject);
+  if (subjectKind !== "principal" && subjectKind !== "group") {
+    throw new GraphError("UNKNOWN_SUBJECT", grant.subject, `Grant on "${grant.resource}" names unknown subject "${grant.subject}"`);
+  }
+  if (kinds.get(grant.resource) !== "resource") {
+    throw new GraphError("UNKNOWN_RESOURCE", grant.resource, `Grant to "${grant.subject}" points to unknown resource "${grant.resource}"`);
+  }
+  if (!(PERMISSIONS as readonly string[]).includes(grant.permission)) {
+    throw new GraphError(
+      "INVALID_PERMISSION",
+      grant.permission,
+      `Grant to "${grant.subject}" on "${grant.resource}" has unsupported permission "${grant.permission}"`,
+    );
+  }
+}
+
+function append<T>(map: Map<string, T[]>, key: string, value: T): void {
   const list = map.get(key);
   if (list) list.push(value);
   else map.set(key, [value]);

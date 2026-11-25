@@ -69,7 +69,7 @@ flowchart LR
 | Week | Focus | Status |
 |---|---|---|
 | Week 1 | **W01-01 + foundation** — Scaffold workspace with standalone evaluator package, evaluate direct membership with fixture tests, add Fastify API with Prisma schema for workspaces and roles, add immutable snapshots and synthetic seed | ✅ Done |
-| Week 2 | **Graph** — Normalize nodes and edges, validate graph imports, add graph search, add graph explorer, add access-path inspector | Planned |
+| Week 2 | **Graph** — Normalize nodes and edges, validate graph imports, add graph search, add graph explorer, add access-path inspector | ✅ Done |
 | Week 3 | **Policy** — Add allow, deny and unknown precedence, add change proposals with dry-run evaluation, show before/after diffs | Planned |
 | Week 4 | **Findings & conformance** — Flag broad grants with evidence, bound traversal and handle cycles and oversized imports | Planned |
 | Week 5 | **Release** — Benchmark larger graphs, package containers and document operations, add end-to-end tests and API docs | Planned |
@@ -81,10 +81,13 @@ The repository is a pnpm workspace (Node 22, see `.nvmrc`):
 | Package | Contents |
 |---|---|
 | [`packages/evaluator`](packages/evaluator/README.md) | Standalone graph evaluator, no I/O |
-| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces, roles, immutable snapshots, synthetic seed |
+| [`apps/api`](apps/api/README.md) | Fastify API with Prisma: workspaces, roles, immutable snapshots, graph search, synthetic seed |
+| [`apps/web`](apps/web/README.md) | Next.js UI: workspaces, snapshots and a graph explorer |
 
 ```sh
 pnpm install
 pnpm lint && pnpm typecheck && pnpm test
 docker compose up -d postgres   # local PostgreSQL for the API, see apps/api/README.md
+pnpm --filter @permitgraph/api dev   # API on :3001
+pnpm --filter @permitgraph/web dev   # UI on http://localhost:3000
 ```
